@@ -140,9 +140,9 @@ function FeedPage(props: FeedPageProps) {
   wideRef.current = props.wide;
   const pan = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => false,
-    onMoveShouldSetPanResponder: (_, gesture) => !wideRef.current && gesture.dx < -20 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.6,
-    onMoveShouldSetPanResponderCapture: (_, gesture) => !wideRef.current && gesture.dx < -25 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.8,
-    onPanResponderRelease: (_, gesture) => { if (!wideRef.current && gesture.dx < -60 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.5) { feedback(); openRecipeRef.current(); } },
+    onMoveShouldSetPanResponder: (_, gesture) => !wideRef.current && gesture.dx > 20 && gesture.dx > Math.abs(gesture.dy) * 1.6,
+    onMoveShouldSetPanResponderCapture: (_, gesture) => !wideRef.current && gesture.dx > 25 && gesture.dx > Math.abs(gesture.dy) * 1.8,
+    onPanResponderRelease: (_, gesture) => { if (!wideRef.current && gesture.dx > 60 && gesture.dx > Math.abs(gesture.dy) * 1.5) { feedback(); openRecipeRef.current(); } },
     onPanResponderTerminationRequest: () => true,
   })).current;
   const compactCard = height < 500;
@@ -172,7 +172,7 @@ function FeedPage(props: FeedPageProps) {
         <View style={styles.recipeMeta}><Icon name="time-outline" size={12} color="#e0d8cc" /><Text style={styles.metaText}>{props.minutes || '—'} min</Text><View style={styles.metaDot} /><Text style={styles.metaText}>{props.steps} pasos</Text><View style={styles.metaDot} /><Text style={styles.metaText} numberOfLines={1}>{recipe.tags[0] || 'Hecho en casa'}</Text></View>
         <Text accessibilityRole="header" numberOfLines={3} style={[styles.recipeTitle, compactCard && styles.compactTitle]}>{recipe.title}</Text>
         {!compactCard && <Text numberOfLines={2} style={styles.recipeSubtitle}>{recipe.subtitle}</Text>}
-        {!props.wide && <PuffyButton title="Abrir receta" icon="restaurant-outline" arrowDirection="left" hint="Desliza hacia la izquierda para abrir la receta." onPress={props.onRecipe} small={compactCard} material="glass" style={styles.recipeButton} />}
+        {!props.wide && <PuffyButton title="Abrir receta" icon="restaurant-outline" arrowDirection="right" showArrow hint="Arrastra de izquierda a derecha para abrir la receta." onPress={props.onRecipe} small={compactCard} material="glass" style={styles.recipeButton} />}
       </View>
     </View>
   </View>;

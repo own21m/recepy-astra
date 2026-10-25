@@ -70,7 +70,7 @@ La apariencia es automática y sigue los cambios de tema del sistema. El modo cl
 
 ## Recetas y comentarios en el feed
 
-En móvil, desliza hacia la izquierda sobre la publicación para abrir su receta. El panel entra desde la izquierda y se cierra con la X o arrastrándolo hacia la derecha. Los comentarios aparecen desde abajo y tienen una agarradera superior: arrástrala hacia abajo para cerrar el panel, además de poder usar la X.
+En móvil, arrastra de izquierda a derecha sobre la publicación para abrir su receta, siguiendo la flecha del botón. El panel entra desde la izquierda y se cierra con la X o arrastrándolo hacia la derecha. Los comentarios aparecen desde abajo y tienen una agarradera superior: arrástrala hacia abajo para cerrar el panel, además de poder usar la X.
 
 Toca el avatar, nombre o cuerpo de un comentario para abrir el perfil de su autor. Cada comentario permite responder y dar o quitar un me gusta. Las respuestas y los likes se guardan en este dispositivo.
 

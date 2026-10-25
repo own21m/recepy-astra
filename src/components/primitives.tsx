@@ -22,9 +22,9 @@ export function SpringPress({children,onPress,style,label,hint,disabled=false}:{
   const animate=(value:number)=>{if(motionEnabled)Animated.spring(scale,{toValue:value,useNativeDriver:Platform.OS!=='web',speed:35,bounciness:9}).start();};
   return <Animated.View style={[style,{transform:[{scale}]}]}><Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityHint={hint} accessibilityState={{disabled}} disabled={disabled} onPress={()=>{feedback();onPress();}} onPressIn={()=>animate(.96)} onPressOut={()=>animate(1)} style={{opacity:disabled?.38:1}}>{children}</Pressable></Animated.View>;
 }
-export function PuffyButton({title,onPress,icon,small=false,disabled=false,style,material='solid',arrowDirection='right',hint}:{title:string;onPress:()=>void;icon?:IconName;small?:boolean;disabled?:boolean;style?:StyleProp<ViewStyle>;material?:'solid'|'glass';arrowDirection?:'left'|'right';hint?:string}){
+export function PuffyButton({title,onPress,icon,small=false,disabled=false,style,material='solid',arrowDirection='right',showArrow=!small,hint}:{title:string;onPress:()=>void;icon?:IconName;small?:boolean;disabled?:boolean;style?:StyleProp<ViewStyle>;material?:'solid'|'glass';arrowDirection?:'left'|'right';showArrow?:boolean;hint?:string}){
   const{colors}=useTheme();const styles=useThemeStyles(createStyles);
-  const content=<>{icon&&<Icon name={icon} size={small?18:21} color={colors.onPrimary}/>}<Text style={styles.actionText}>{title}</Text>{(!small||arrowDirection==='left')&&<Icon name={arrowDirection==='left'?'arrow-back':'arrow-forward'} size={19} color={colors.onPrimary}/>}</>;
+  const content=<>{icon&&<Icon name={icon} size={small?18:21} color={colors.onPrimary}/>}<Text style={styles.actionText}>{title}</Text>{showArrow&&<Icon name={arrowDirection==='left'?'arrow-back':'arrow-forward'} size={19} color={colors.onPrimary}/>}</>;
   const buttonStyle=[styles.actionButton,small&&styles.actionSmall];
   return <SpringPress onPress={onPress} disabled={disabled} label={title} hint={hint} style={[styles.actionShell,style]}>{material==='glass'?<Glass appearance="dark" tint="red" style={[...buttonStyle,styles.actionGlass]}>{content}</Glass>:<View style={buttonStyle}>{content}</View>}</SpringPress>;
 }
