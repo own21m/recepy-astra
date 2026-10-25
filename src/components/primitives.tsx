@@ -17,16 +17,16 @@ export type IconName=React.ComponentProps<typeof Ionicons>['name'];
 export function Icon({name,size=22,color}:{name:IconName;size?:number;color?:string}){
   const{colors}=useTheme();return <Ionicons name={name} size={size} color={color??colors.text}/>;
 }
-export function SpringPress({children,onPress,style,label,disabled=false}:{children:React.ReactNode;onPress:()=>void;style?:StyleProp<ViewStyle>;label?:string;disabled?:boolean}){
+export function SpringPress({children,onPress,style,label,hint,disabled=false}:{children:React.ReactNode;onPress:()=>void;style?:StyleProp<ViewStyle>;label?:string;hint?:string;disabled?:boolean}){
   const scale=useRef(new Animated.Value(1)).current;
   const animate=(value:number)=>{if(motionEnabled)Animated.spring(scale,{toValue:value,useNativeDriver:Platform.OS!=='web',speed:35,bounciness:9}).start();};
-  return <Animated.View style={[style,{transform:[{scale}]}]}><Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{disabled}} disabled={disabled} onPress={()=>{feedback();onPress();}} onPressIn={()=>animate(.96)} onPressOut={()=>animate(1)} style={{opacity:disabled?.38:1}}>{children}</Pressable></Animated.View>;
+  return <Animated.View style={[style,{transform:[{scale}]}]}><Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityHint={hint} accessibilityState={{disabled}} disabled={disabled} onPress={()=>{feedback();onPress();}} onPressIn={()=>animate(.96)} onPressOut={()=>animate(1)} style={{opacity:disabled?.38:1}}>{children}</Pressable></Animated.View>;
 }
-export function PuffyButton({title,onPress,icon,small=false,disabled=false,style,material='solid'}:{title:string;onPress:()=>void;icon?:IconName;small?:boolean;disabled?:boolean;style?:StyleProp<ViewStyle>;material?:'solid'|'glass'}){
+export function PuffyButton({title,onPress,icon,small=false,disabled=false,style,material='solid',arrowDirection='right',hint}:{title:string;onPress:()=>void;icon?:IconName;small?:boolean;disabled?:boolean;style?:StyleProp<ViewStyle>;material?:'solid'|'glass';arrowDirection?:'left'|'right';hint?:string}){
   const{colors}=useTheme();const styles=useThemeStyles(createStyles);
-  const content=<>{icon&&<Icon name={icon} size={small?18:21} color={colors.onPrimary}/>}<Text style={styles.actionText}>{title}</Text>{!small&&<Icon name="arrow-forward" size={19} color={colors.onPrimary}/>}</>;
+  const content=<>{icon&&<Icon name={icon} size={small?18:21} color={colors.onPrimary}/>}<Text style={styles.actionText}>{title}</Text>{(!small||arrowDirection==='left')&&<Icon name={arrowDirection==='left'?'arrow-back':'arrow-forward'} size={19} color={colors.onPrimary}/>}</>;
   const buttonStyle=[styles.actionButton,small&&styles.actionSmall];
-  return <SpringPress onPress={onPress} disabled={disabled} label={title} style={[styles.actionShell,style]}>{material==='glass'?<Glass appearance="dark" tint="red" style={[...buttonStyle,styles.actionGlass]}>{content}</Glass>:<View style={buttonStyle}>{content}</View>}</SpringPress>;
+  return <SpringPress onPress={onPress} disabled={disabled} label={title} hint={hint} style={[styles.actionShell,style]}>{material==='glass'?<Glass appearance="dark" tint="red" style={[...buttonStyle,styles.actionGlass]}>{content}</Glass>:<View style={buttonStyle}>{content}</View>}</SpringPress>;
 }
 export function IconButton({name,label,onPress,active=false,size=42,appearance='auto'}:{name:IconName;label:string;onPress:()=>void;active?:boolean;size?:number;appearance?:'auto'|'dark'}){
   const theme=useTheme();const colors=appearance==='dark'?darkColors:theme.colors;
