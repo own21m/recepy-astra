@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, type ReactNode } from 'react';
-import { Animated, KeyboardAvoidingView, PanResponder, Platform, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import React, { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Animated, Keyboard, PanResponder, Platform, Pressable, StyleSheet, View, useWindowDimensions, type KeyboardEvent, type KeyboardMetrics } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, useThemeStyles, type ThemeColors } from '../theme';
 import { shouldCapturePanel, shouldDismissPanel, type PanelMotion } from '../domain/panelGesture';
+import { keyboardOverlap } from '../domain/keyboardLayout';
 
 type Props = {
   kind: PanelMotion;
@@ -20,15 +21,62 @@ export function SheetPanel(props: Props) {
   const offset = useRef(new Animated.Value(props.kind === 'recipe' ? -width : height)).current;
   const shade = useRef(new Animated.Value(0)).current;
   const closing = useRef(false);
+  const viewport = useRef<React.ComponentRef<typeof View>>(null);
+  const keyboardFrame = useRef<KeyboardMetrics | null>(null);
+  const keyboardEvent = useRef<KeyboardEvent | null>(null);
+  const appliedKeyboardInset = useRef(0);
+  const [keyboardInset, setKeyboardInset] = useState(0);
+  const measureRequest = useRef(0);
   const latest = useRef(props);
   latest.current = props;
   const extent = useRef({ width, height });
   extent.current = { width, height };
   const kind = props.kind;
 
+  function measureKeyboard() {
+    if (Platform.OS !== 'ios') return;
+    const request = ++measureRequest.current;
+    viewport.current?.measureInWindow((x, y, measuredWidth, measuredHeight) => {
+      if (request !== measureRequest.current) return;
+      const overlap = keyboardOverlap({ x, y, width: measuredWidth, height: measuredHeight }, keyboardFrame.current);
+      if (overlap === appliedKeyboardInset.current) return;
+      appliedKeyboardInset.current = overlap;
+      // One adjustment at the modal viewport keeps the composer and reply bar
+      // together. The old nested KAV measured y relative to the 86% sheet.
+      if (keyboardEvent.current && !latest.current.reducedMotion) Keyboard.scheduleLayoutAnimation(keyboardEvent.current);
+      setKeyboardInset(overlap);
+    });
+  }
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    keyboardFrame.current = Keyboard.metrics() ?? null;
+    const change = (event: KeyboardEvent) => {
+      keyboardFrame.current = event.endCoordinates;
+      keyboardEvent.current = event;
+      measureKeyboard();
+    };
+    const hide = (event: KeyboardEvent) => {
+      keyboardFrame.current = null;
+      keyboardEvent.current = event;
+      measureKeyboard();
+    };
+    const subscriptions = [
+      Keyboard.addListener('keyboardWillChangeFrame', change),
+      Keyboard.addListener('keyboardWillShow', change),
+      Keyboard.addListener('keyboardWillHide', hide),
+      Keyboard.addListener('keyboardDidHide', hide),
+    ];
+    measureKeyboard();
+    return () => { measureRequest.current += 1; subscriptions.forEach(subscription => subscription.remove()); };
+  }, []);
+
+  useEffect(() => { measureKeyboard(); }, [width, height]);
+
   function close() {
     if (closing.current) return;
     closing.current = true;
+    Keyboard.dismiss();
     const next = latest.current.kind === 'recipe' ? extent.current.width : extent.current.height;
     Animated.parallel([
       Animated.timing(offset, { toValue: next, duration: latest.current.reducedMotion ? 0 : 240, useNativeDriver: Platform.OS !== 'web' }),
@@ -60,25 +108,28 @@ export function SheetPanel(props: Props) {
     return () => { offset.stopAnimation(); shade.stopAnimation(); };
   }, []);
 
-  return <View style={styles.backdrop}>
+  return <View ref={viewport} collapsable={false} onLayout={measureKeyboard} style={styles.backdrop}>
     <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: colors.overlay, opacity: shade }]} />
     <Pressable style={StyleSheet.absoluteFill} accessibilityLabel="Cerrar panel" onPress={close} />
+    <View pointerEvents="box-none" style={[styles.keyboardViewport, { paddingBottom: keyboardInset }]}>
     <Animated.View {...(kind === 'recipe' ? pan.panHandlers : {})} style={[
       styles.panel,
       props.desktop && styles.desktop,
       kind === 'comments' && styles.comments,
-      { paddingTop: props.desktop || kind === 'comments' ? 0 : insets.top, paddingBottom: props.desktop ? 0 : Math.max(insets.bottom, 8), transform: [kind === 'recipe' ? { translateX: offset } : { translateY: offset }] },
+      { paddingTop: props.desktop || kind === 'comments' ? 0 : insets.top, paddingBottom: props.desktop || keyboardInset > 0 ? 0 : Math.max(insets.bottom, 8), transform: [kind === 'recipe' ? { translateX: offset } : { translateY: offset }] },
     ]}>
       {kind === 'comments' && <View {...pan.panHandlers} style={styles.handleArea} accessibilityLabel="Desliza hacia abajo para cerrar los comentarios"><View style={styles.handle} /></View>}
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.content}>
+      <View style={styles.content}>
         {props.children(close)}
-      </KeyboardAvoidingView>
+      </View>
     </Animated.View>
+    </View>
   </View>;
 }
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   backdrop: { flex: 1, justifyContent: 'flex-end', alignItems: 'center' },
+  keyboardViewport: { flex: 1, width: '100%', justifyContent: 'flex-end', alignItems: 'center' },
   panel: { width: '100%', height: '100%', backgroundColor: colors.background, overflow: 'hidden' },
   desktop: { height: '94%', maxHeight: 1050, maxWidth: 780, borderRadius: 30, borderWidth: 1, borderColor: colors.border, marginBottom: '2%' },
   comments: { height: '86%', borderTopLeftRadius: 30, borderTopRightRadius: 30, borderWidth: 1, borderColor: colors.border },

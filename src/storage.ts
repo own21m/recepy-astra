@@ -13,6 +13,8 @@ export type CookingProgress = {
   completed: string[];
   servings: number;
   stepIndex: number;
+  mode?: 'guided' | 'overview';
+  tab?: 'ingredients' | 'steps';
   timer?: {
     stepId: string;
     endAt: number | null;
@@ -163,6 +165,8 @@ function parseCooking(value: unknown): StoredState['cooking'] {
       servings: positiveInteger(progress.servings, 2),
       stepIndex: typeof progress.stepIndex === 'number' && Number.isSafeInteger(progress.stepIndex)
         && progress.stepIndex >= 0 ? progress.stepIndex : 0,
+      ...(progress.mode === 'guided' || progress.mode === 'overview' ? { mode: progress.mode } : {}),
+      ...(progress.tab === 'ingredients' || progress.tab === 'steps' ? { tab: progress.tab } : {}),
       ...(timer ? { timer: {
         stepId: timer.stepId as string,
         endAt,

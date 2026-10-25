@@ -74,11 +74,13 @@ En móvil, desliza hacia la izquierda sobre la publicación para abrir su receta
 
 Toca el avatar, nombre o cuerpo de un comentario para abrir el perfil de su autor. Cada comentario permite responder y dar o quitar un me gusta. Las respuestas y los likes se guardan en este dispositivo.
 
+En iOS, la caja de texto, el destinatario de la respuesta y el botón de enviar se desplazan juntos con el teclado. El panel usa un único ajuste en el viewport del modal, calculado con coordenadas de ventana y los cambios de marco del teclado; se retiró el `KeyboardAvoidingView` interior, cuya medida relativa al panel no coincidía con la del teclado. El espacio inferior de safe area no se suma mientras el teclado está abierto. Enviar conserva el foco y el scroll permite cerrar el teclado de forma interactiva.
+
 En la vista web, a partir de 1100 puntos de ancho, la publicación y la receta se muestran una al lado de la otra. La receta visible se actualiza al cambiar de publicación en el feed y conserva los controles de ingredientes, porciones y cocina.
 
 ## La receta es interactiva
 
-En **Crear**, pega o escribe una receta y pulsa **Convertir receta**. El ejemplo incluido muestra un formato que funciona bien:
+En **Crear**, pega o escribe una receta en **español o inglés** y pulsa **Convertir receta**. El editor incluye ejemplos en ambos idiomas. El ejemplo en español muestra un formato que funciona bien:
 
 ```text
 Pasta de domingo
@@ -97,11 +99,15 @@ Preparación:
 3. Mezcla, ajusta la sal y sirve.
 ```
 
-La conversión usa un **analizador determinista local**, sin enviar el texto a una IA. Detecta ingredientes, cantidades, unidades, porciones, pasos y tiempos escritos. Admite fracciones y decimales con coma. Cuando falta información o una cantidad es ambigua, muestra avisos para que puedas revisar el texto. No inventa una preparación.
+La conversión usa un **analizador determinista local**, sin enviar el texto a una IA. Reconoce encabezados, ingredientes, cantidades, unidades, porciones, pasos y tiempos escritos en español e inglés. Admite fracciones y decimales con coma. Detecta el idioma y conserva el contenido original; no traduce ni inventa una preparación. Cuando falta información o una cantidad es ambigua, muestra avisos para que puedas revisar el texto.
 
-La pantalla de revisión permite comprobar lo detectado y abrir la vista previa. Para publicar una receta local se necesita una foto propia o el ejemplo identificado, una receta completa y marcar que se revisó el resultado. El borrador se guarda mientras escribes.
+La pantalla de revisión permite comprobar lo detectado y abrir la vista previa. También señala qué detalles conviene aclarar para quien empieza a cocinar: cantidades, tiempos, temperaturas o señales de cuándo está lista la preparación. Es una ayuda al autor para completar su texto, sin rellenar información ausente con suposiciones. Para publicar una receta local se necesita una foto propia o el ejemplo identificado, una receta completa y marcar que se revisó el resultado. El borrador se guarda mientras escribes.
 
-Al cocinar puedes marcar ingredientes, ajustar porciones, seguir un paso cada vez y usar sus temporizadores. El avance y los datos de esta versión se conservan localmente. Los ingredientes «al gusto» y los intervalos no se convierten en cantidades exactas inventadas.
+Al cocinar puedes marcar ingredientes preparados y ajustar porciones. **Receta completa** permite consultar todas las instrucciones de una vez; **Cocinar paso a paso** muestra solo el paso actual, dividido en acciones cortas extraídas del texto original. Puedes entrar en la guía desde cualquier paso. Las temperaturas y señales de cocción que aparecen proceden de la receta, y un glosario contextual explica técnicas cuando necesitas ayuda.
+
+La guía permite escuchar el paso en español o inglés con `expo-speech`, compatible con Expo SDK 58 y Expo Go. La lectura utiliza el texto original y la voz disponible en el dispositivo. En el iPhone, el modo silencio puede impedir que se escuche: desactívalo y comprueba el volumen si hace falta.
+
+El avance, el modo de lectura y la pestaña elegida se conservan localmente. Puedes deshacer el último paso completado; reiniciar la guía requiere confirmación para evitar perder el avance por un toque accidental. Los temporizadores permiten añadir un minuto, pausar o reiniciar. Los ingredientes «al gusto» y los intervalos no se convierten en cantidades exactas inventadas.
 
 Los temporizadores guardan su hora de finalización y actualizan la cuenta al volver a la app. Esta versión no programa alarmas nativas ni avisos del sistema cuando la app está cerrada o en segundo plano.
 
@@ -113,11 +119,14 @@ Los temporizadores guardan su hora de finalización y actualizan la cuenta al vo
 - Icono de la sección actual rojo y botones con extremos circulares.
 - Receta con entrada lateral y cierre por gesto; comentarios con agarradera para cerrar hacia abajo.
 - Perfiles accesibles desde los comentarios, respuestas y likes locales.
+- Caja de comentarios que acompaña al teclado de iOS, con envío sin ocultarlo.
 - Tema automático negro o beige según el sistema.
 - Descubrimiento y perfiles de creadores centrados.
 - Recetario, me gusta, comentarios y seguimiento de demostración.
 - Perfil propio editable: nombre, usuario, presentación y foto elegida de la galería.
-- Recetas de texto convertidas en ingredientes y pasos interactivos.
+- Recetas de texto en español e inglés convertidas en ingredientes y pasos interactivos, con revisión de claridad para el autor.
+- Receta completa o guía de cocina con acciones cortas, glosario contextual y lectura del paso en voz alta.
+- Progreso recuperable, deshacer pasos, reinicio con confirmación y temporizadores ajustables.
 - Borradores, publicaciones, preferencias y progreso guardados en el dispositivo.
 - Animaciones suaves, movimiento reducido y respuesta háptica compatible.
 
@@ -129,7 +138,7 @@ Todo el trabajo de esta fase es **local**. No usa Sites de ChatGPT, MongoDB, Aut
 
 Los borradores de comentarios se conservan al visitar un perfil y volver al hilo durante la sesión. Consulta [ASSETS.md](ASSETS.md) para conocer la procedencia de los recursos visuales y sus referencias.
 
-Los cambios recientes se verificaron en la vista web local, con TypeScript y con pruebas automatizadas. Se comprobaron el tap del menú y el gesto de mantener y arrastrar por sus destinos. Queda pendiente probar el gesto completo de mantener, deslizar y soltar en un iPhone físico; la vista web no sustituye esa comprobación ni la de permisos, respuesta háptica y materiales nativos.
+Los cambios recientes se verificaron con TypeScript y pruebas automatizadas; la vista web local permite comprobar el diseño y los flujos compartidos. Se comprobaron el tap del menú y el arrastre por sus destinos durante el desarrollo. **Queda pendiente validar en un iPhone físico que la caja de comentarios siga al teclado de iOS**, además del gesto completo de mantener, deslizar y soltar. Las pruebas de geometría y la vista web no sustituyen la comprobación nativa del teclado, la voz, los permisos, la respuesta háptica y los materiales.
 
 ## Verificación y desarrollo
 
@@ -140,6 +149,6 @@ pnpm export:web
 pnpm export:ios
 ```
 
-Las comprobaciones recientes incluyen **TypeScript y 36 pruebas automatizadas**: 18 del analizador de recetas, 9 de geometría del menú, 3 de gestos de paneles y 6 de comentarios. La vista web local permite comprobar la navegación, las transiciones de paneles, los comentarios y la distribución adaptable. Durante el desarrollo se exportaron bundles para web e iOS; exportar un bundle no equivale a generar una app firmada ni a ejecutarla en un iPhone físico.
+Las comprobaciones recientes incluyen **TypeScript y 67 pruebas automatizadas**: 33 del analizador bilingüe, 9 de geometría del menú, 3 de gestos de paneles, 6 de comentarios, 7 del ajuste del teclado, 6 de la guía de cocina y 3 de la revisión de claridad. Durante el desarrollo se exportaron bundles para web e iOS; exportar un bundle no equivale a generar una app firmada ni a ejecutarla en un iPhone físico.
 
-El analizador y sus pruebas están en `src/domain/recipeParser.ts` y `src/domain/recipeParser.test.ts`. La geometría del gesto y sus pruebas están en `src/domain/menuGesture.ts` y `src/domain/menuGesture.test.ts`. Los gestos de paneles y los comentarios también tienen pruebas en `src/domain`. La interfaz nativa está en `src/screens`; los botones y materiales compartidos están en `src/components/primitives.tsx`. Los datos sociales de muestra están en `src/data/recipes.ts`.
+El analizador y sus pruebas están en `src/domain/recipeParser.ts` y `src/domain/recipeParser.test.ts`. La geometría del menú, los paneles, el teclado, los comentarios, la guía de cocina y la revisión de claridad también tienen pruebas en `src/domain`. La interfaz nativa está en `src/screens`; los botones y materiales compartidos están en `src/components/primitives.tsx`. El ajuste del teclado está en `src/components/SheetPanel.tsx`. Los datos sociales de muestra están en `src/data/recipes.ts`.

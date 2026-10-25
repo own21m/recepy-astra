@@ -1,5 +1,5 @@
 import React, { useMemo, useRef } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { demoRecipes, type Creator, type OwnProfile, type RecipeComment, type SocialRecipe } from '../data/recipes';
 import { commentAuthor, threadComments } from '../domain/commentThreads';
 import { EmptyState, Icon, IconButton, feedback } from '../components/primitives';
@@ -43,6 +43,7 @@ export function CommentsScreen({ recipe, profile, comments, likedComments, draft
     pendingScroll.current = replyingTo?.id ?? true;
     onSubmit(message, replyingTo?.id);
     onDraftChange({ text: '' });
+    input.current?.focus();
     feedback();
   }
 
@@ -56,7 +57,7 @@ export function CommentsScreen({ recipe, profile, comments, likedComments, draft
         </Pressable>
       </View>
     </View>
-    <ScrollView ref={list} contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled"
+    <ScrollView ref={list} style={styles.scroll} contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} automaticallyAdjustKeyboardInsets={false}
       onContentSizeChange={() => {
         const target = pendingScroll.current;
         if (!target) return;
@@ -116,6 +117,7 @@ export function CommentsScreen({ recipe, profile, comments, likedComments, draft
 
 const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   screen: { flex: 1, minHeight: 0, backgroundColor: colors.background },
+  scroll: { flex: 1, minHeight: 0 },
   recipe: { flexDirection: 'row', gap: 14, alignItems: 'center', paddingHorizontal: 21, paddingVertical: 15, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   recipeImage: { width: 48, height: 56, borderRadius: 12, backgroundColor: colors.surface },
   recipeCopy: { flex: 1 },

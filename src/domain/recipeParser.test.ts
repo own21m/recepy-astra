@@ -1,8 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRecipeText, scaleIngredient, formatDuration, exampleRecipeText } from './recipeParser.ts';
+import { parseRecipeText, scaleIngredient, formatDuration, exampleRecipeText, exampleRecipeTextEnglish } from './recipeParser.ts';
 
 const recipeWith = (ingredients: string, steps = '1. Mezcla y cocina durante 5 minutos.') => `Mi receta\nPorciones: 2\nTiempo: 10 minutos\nIngredientes:\n${ingredients}\nPreparación:\n${steps}`;
+
+test('keeps English dish names that are also verbs as titles rather than cooking steps', () => {
+  for (const title of ['Toast', 'Roast chicken', 'Baked potatoes']) {
+    const recipe = parseRecipeText(`${title}\nServings: 2\nTotal time: 20 minutes\nIngredients:\n2 slices bread\nDirections:\n1. Bake at 350 F until golden.`);
+    assert.equal(recipe.title, title);
+    assert.equal(recipe.steps.length, 1);
+    assert.equal(recipe.steps[0].instruction, 'Bake at 350 F until golden.');
+  }
+});
+
+test('links compound English ingredients through distinctive nouns without guessing between two kinds of stock', () => {
+  const recipe = parseRecipeText('Dinner\nServings: 2\nTotal time: 20 minutes\nIngredients:\n350 g cherry tomatoes\n2 tbsp olive oil\n200 g chicken breast\n100 ml chicken stock\n100 ml vegetable stock\nDirections:\n1. Cook the tomatoes in oil.\n2. Cook the breast.\n3. Add stock.\n4. Boil water.');
+  assert.deepEqual(recipe.steps[0].ingredientIds, ['ingredient-1', 'ingredient-2']);
+  assert.deepEqual(recipe.steps[1].ingredientIds, ['ingredient-3']);
+  assert.deepEqual(recipe.steps[2].ingredientIds, []);
+  assert.deepEqual(recipe.steps[3].ingredientIds, []);
+});
 
 test('parses a complete Spanish recipe without fabricating steps', () => {
   const recipe = parseRecipeText(exampleRecipeText);
@@ -143,4 +160,134 @@ test('recognizes cdta and cdtas as teaspoons', () => {
   assert.deepEqual(recipe.ingredients.map(ingredient => ingredient.name), ['comino', 'pimentón']);
   assert.equal(scaleIngredient(recipe.ingredients[0], 2, 2), '1 cucharadita');
   assert.equal(scaleIngredient(recipe.ingredients[1], 2, 2), '2 cucharaditas');
+});
+
+const englishRecipe = (ingredients: string, steps = '1. Mix and cook for 5 minutes.', metadata = 'Servings: 2\nTotal time: 10 minutes') => `Simple recipe\n${metadata}\nIngredients:\n${ingredients}\nDirections:\n${steps}`;
+
+test('parses the English example and preserves its instructions, temperatures and explicit total', () => {
+  const recipe = parseRecipeText(exampleRecipeTextEnglish);
+  assert.equal(recipe.language, 'en');
+  assert.equal(recipe.title, 'Roasted tomato pasta');
+  assert.equal(recipe.servings, 2);
+  assert.equal(recipe.totalMinutes, 35);
+  assert.equal(recipe.ingredients.length, 7);
+  assert.equal(recipe.steps.length, 4);
+  assert.deepEqual(recipe.steps.map(step => step.durationSeconds), [1500, 600, 60, null]);
+  assert.match(recipe.steps[0].instruction, /350 °F \(180 °C\)/u);
+  assert.match(recipe.steps[0].instruction, /until the tomatoes are soft/u);
+  assert.equal(recipe.warnings.length, 0);
+});
+
+test('recognizes English headings, servings and numbered Step labels', () => {
+  for (const heading of ['Directions', 'Instructions', 'Method', 'Preparation', 'Steps']) {
+    const recipe = parseRecipeText(`Recipe title: Tomato toast\nServes 4 people\nReady in: 10 minutes\nIngredients: 4 slices bread; 2 tomatoes\n${heading}:\nStep 1: Toast the bread for 2 min.\nStep 2: Slice the tomatoes and serve.`);
+    assert.equal(recipe.language, 'en');
+    assert.equal(recipe.title, 'Tomato toast');
+    assert.equal(recipe.servings, 4);
+    assert.equal(recipe.totalMinutes, 10);
+    assert.equal(recipe.steps.length, 2);
+    assert.equal(recipe.steps[0].instruction, 'Toast the bread for 2 min.');
+    assert.deepEqual(recipe.steps[1].ingredientIds, ['ingredient-2']);
+  }
+});
+
+test('explicit total time wins regardless of metadata order and is never added twice', () => {
+  for (const metadata of [
+    'Total time: 30 minutes\nPrep time: 10 minutes\nCook time: 20 minutes',
+    'Cooking time: 20 minutes\nTotal time: 30 minutes\nPreparation time: 10 minutes',
+  ]) {
+    const recipe = parseRecipeText(englishRecipe('1 egg', '1. Beat the egg for 30 seconds.', `Yield: 2 servings\n${metadata}`));
+    assert.equal(recipe.servings, 2);
+    assert.equal(recipe.totalMinutes, 30);
+  }
+  const sum = parseRecipeText(englishRecipe('1 egg', undefined, 'Servings: 2\nPrep time: 10 minutes\nCook time: 20 minutes'));
+  assert.equal(sum.totalMinutes, 30);
+  assert.ok(sum.warnings.some(warning => warning.includes('puede no incluir reposos')));
+});
+
+test('English quantities, fractions and units scale with readable singulars and decimal points', () => {
+  const recipe = parseRecipeText(englishRecipe('1/2 cup milk\n1 1/2 cups flour\n¼ teaspoon salt\n1½ tablespoons oil\n2 cloves garlic\n1 pinch pepper\n2 oz cheese\n1 lb potatoes'));
+  assert.deepEqual(recipe.ingredients.map(item => item.quantity), [.5, 1.5, .25, 1.5, 2, 1, 2, 1]);
+  assert.deepEqual(recipe.ingredients.map(item => item.name), ['milk', 'flour', 'salt', 'oil', 'garlic', 'pepper', 'cheese', 'potatoes']);
+  assert.equal(scaleIngredient(recipe.ingredients[0], 2, 3), '0.75 cups');
+  assert.equal(scaleIngredient(recipe.ingredients[1], 3, 2), '1 cup');
+  assert.equal(scaleIngredient(recipe.ingredients[2], 2, 4), '0.5 tsp');
+  assert.equal(scaleIngredient(recipe.ingredients[3], 2, 4), '3 tbsp');
+  assert.equal(scaleIngredient(recipe.ingredients[4], 2, 1), '1 clove');
+  assert.equal(scaleIngredient(recipe.ingredients[5], 2, 2), '1 pinch');
+  assert.equal(scaleIngredient(recipe.ingredients[6], 2, 4), '4 oz');
+  assert.equal(scaleIngredient(recipe.ingredients[7], 2, 4), '2 lb');
+});
+
+test('accepts English metric spellings, compact measures and optional ingredients', () => {
+  const recipe = parseRecipeText(englishRecipe('200g flour\n100 millilitres water\n1 kilogram potatoes\n2 leaves basil (optional)'));
+  assert.deepEqual(recipe.ingredients.map(item => item.quantity), [200, 100, 1, 2]);
+  assert.deepEqual(recipe.ingredients.map(item => item.unit), ['g', 'ml', 'kg', 'leaves']);
+  assert.equal(recipe.ingredients[3].name, 'basil');
+  assert.equal(recipe.ingredients[3].optional, true);
+  assert.equal(scaleIngredient(recipe.ingredients[3], 2, 1), '1 leaf');
+});
+
+test('keeps to taste and as needed qualitative instead of inventing quantities', () => {
+  const recipe = parseRecipeText(englishRecipe('Salt, to taste\nWater, as needed\nParsley'));
+  assert.equal(scaleIngredient(recipe.ingredients[0], 2, 8), 'To taste');
+  assert.equal(scaleIngredient(recipe.ingredients[1], 2, 8), 'As needed');
+  assert.equal(scaleIngredient(recipe.ingredients[2], 2, 8), 'As written');
+  assert.ok(recipe.warnings.some(warning => warning.startsWith('Hay un ingrediente sin cantidad')));
+});
+
+test('English ranges keep their original bounds and do not get a timer', () => {
+  const recipe = parseRecipeText(englishRecipe('1 to 2 tbsp olive oil\n1.5–2 cups flour', '1. Bake at 400 °F for 15 to 20 minutes.\n2. Rest for between 5 and 10 minutes.'));
+  assert.deepEqual(recipe.ingredients.map(item => item.quantity), [null, null]);
+  assert.equal(scaleIngredient(recipe.ingredients[0], 2, 4), '1–2 tbsp');
+  assert.equal(scaleIngredient(recipe.ingredients[1], 2, 4), '1.5–2 cups');
+  assert.deepEqual(recipe.steps.map(item => item.durationSeconds), [null, null]);
+  assert.equal(recipe.warnings.filter(warning => warning.includes('tiempo del paso')).length, 2);
+});
+
+test('understands English compound and fractional durations without confusing degrees', () => {
+  const recipe = parseRecipeText(englishRecipe('1 loaf bread', '1. Preheat to 180 °C (350 °F).\n2. Bake for 1 hour and 20 minutes.\n3. Rest for 1 1/2 hours.\n4. Whisk for 30 seconds.\n5. Cook for 1.5 minutes.'));
+  assert.deepEqual(recipe.steps.map(item => item.durationSeconds), [null, 4800, 5400, 30, 90]);
+  assert.equal(recipe.steps[4].title, 'Cook for 1.5 minutes');
+});
+
+test('links English singulars and plurals with complete words, not oil inside boil', () => {
+  const recipe = parseRecipeText(englishRecipe('2 tomatoes\n1 tbsp oil\n2 eggs\n1 cup berries\n2 leaves basil', '1. Slice the tomato.\n2. Boil the water.\n3. Beat the egg.\n4. Mash a berry.\n5. Add the basil.'));
+  assert.deepEqual(recipe.steps.map(item => item.ingredientIds), [['ingredient-1'], [], ['ingredient-3'], ['ingredient-4'], ['ingredient-5']]);
+});
+
+test('infers an English unheaded list while warning about the inferred sections', () => {
+  const recipe = parseRecipeText('Tomato toast\n2 slices bread\n1 tomato\n1. Toast the bread for 2 minutes.\n2. Slice the tomato and serve.');
+  assert.equal(recipe.language, 'en');
+  assert.equal(recipe.ingredients.length, 2);
+  assert.equal(recipe.steps.length, 2);
+  assert.ok(recipe.warnings.some(warning => warning.includes('ingredientes por sus cantidades')));
+  assert.ok(recipe.warnings.some(warning => warning.includes('pasos por el formato')));
+});
+
+test('English section labels do not turn titles starting with Time into metadata', () => {
+  const recipe = parseRecipeText('Timeless tomato soup\nServings: 2\nIngredients:\nFor the soup:\n2 tomatoes\nWater, as needed\nInstructions:\n1. Simmer the tomatoes until soft.');
+  assert.equal(recipe.title, 'Timeless tomato soup');
+  assert.equal(recipe.ingredients.length, 2);
+  assert.equal(recipe.steps.length, 1);
+  assert.equal(recipe.steps[0].durationSeconds, null);
+});
+
+test('English missing instructions and ambiguous servings remain visible warnings', () => {
+  const recipe = parseRecipeText('Bread\nServes: 2–4 people\nIngredients:\n1 cup flour\nWater, as needed');
+  assert.equal(recipe.steps.length, 0);
+  assert.ok(recipe.warnings.some(warning => warning.includes('no se han inventado instrucciones')));
+  assert.ok(recipe.warnings.some(warning => warning.includes('cantidad única reconocible')));
+});
+
+test('separate timed actions in one step are not silently merged into one countdown', () => {
+  for (const instruction of [
+    '1. Bake the tomatoes for 20 minutes. Meanwhile, boil pasta for 10 minutes.',
+    '1. Hornea los tomates 20 minutos. Después deja reposar 10 minutos.',
+  ]) {
+    const recipe = parseRecipeText(englishRecipe('2 tomatoes', instruction));
+    assert.equal(recipe.steps[0].durationSeconds, null);
+    assert.ok(recipe.warnings.some(warning => warning.includes('tiempos para acciones diferentes')));
+  }
+  assert.equal(parseRecipeText(englishRecipe('2 tomatoes', '1. Bake for 1 hour and 20 minutes.')).steps[0].durationSeconds, 4800);
 });

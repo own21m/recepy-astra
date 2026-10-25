@@ -7,7 +7,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Clipboard from 'expo-clipboard';
 import { Icon, IconButton, PuffyButton, useCommonStyles } from '../components/primitives';
 import { useTheme, useThemeStyles, type ThemeColors } from '../theme';
-import { exampleRecipeText, parseRecipeText, scaleIngredient, type ParsedRecipe } from '../domain/recipeParser';
+import { exampleRecipeText, exampleRecipeTextEnglish, parseRecipeText, scaleIngredient, type ParsedRecipe } from '../domain/recipeParser';
+import { reviewRecipeClarity } from '../domain/recipeReview';
 import type { OwnProfile, SocialRecipe } from '../data/recipes';
 
 type Props = {
@@ -40,6 +41,8 @@ export function ComposeScreen({ profile, onPreview, onPublish, onPickImage }: Pr
   const [busyPublish, setBusyPublish] = useState(false);
   const [expanded, setExpanded] = useState<'ingredients' | 'steps' | null>(null);
   const [undoText, setUndoText] = useState('');
+  const [chooseExample, setChooseExample] = useState(false);
+  const [showClarity, setShowClarity] = useState(false);
   const scroll = useRef<{ scrollTo: (options: { y: number; animated: boolean }) => void } | null>(null);
   const mounted = useRef(true);
   const writes = useRef<Promise<void>>(draftWriteQueue);
@@ -112,9 +115,10 @@ export function ComposeScreen({ profile, onPreview, onPublish, onPickImage }: Pr
     setSource(value); setParsed(null); setReviewed(false); setError(''); setNotice('');
   }
 
-  function useExample() {
+  function useExample(language: 'es' | 'en') {
     if (source.trim()) setUndoText(source);
-    changeSource(exampleRecipeText);
+    changeSource(language === 'en' ? exampleRecipeTextEnglish : exampleRecipeText);
+    setChooseExample(false);
     if (!imageUri) { latestDraft.current = { ...latestDraft.current, examplePhoto: true }; setExamplePhoto(true); }
     setNotice(imageUri ? 'Ejemplo cargado. Conservamos tu foto.' : 'Ejemplo cargado con una foto de muestra.');
   }
@@ -150,10 +154,16 @@ export function ComposeScreen({ profile, onPreview, onPublish, onPickImage }: Pr
     finally { if (mounted.current) setBusyImage(false); }
   }
 
+  function removeImage() {
+    published.current = false;
+    latestDraft.current = { ...latestDraft.current, imageUri: null, examplePhoto: false };
+    setImageUri(null); setExamplePhoto(false); setReviewed(false);
+  }
+
   function convert() {
     if (!source.trim()) { setError('Escribe o pega una receta para convertirla.'); return; }
     Keyboard.dismiss();
-    setParsed(parseRecipeText(source)); setReviewed(false); setExpanded(null); setError(''); setNotice('');
+    setParsed(parseRecipeText(source)); setReviewed(false); setExpanded(null); setShowClarity(false); setError(''); setNotice('');
     scroll.current?.scrollTo({ y: 0, animated: true });
   }
 
@@ -189,19 +199,21 @@ export function ComposeScreen({ profile, onPreview, onPublish, onPickImage }: Pr
 
   const image = imageUri ? { uri: imageUri } : examplePhoto ? demoImage : null;
   const ready = Boolean(parsed && parsed.ingredients.length && parsed.steps.length && parsed.title !== 'Tu nueva receta');
+  const clarity = parsed ? reviewRecipeClarity(parsed) : [];
 
   return <ScrollView ref={node => { scroll.current = node; }} style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
     <View style={styles.intro}>
       <Text accessibilityRole="header" style={[common.title, styles.title]}>{parsed ? 'Revisar receta' : 'Crear receta'}</Text>
-      <Text style={[common.body, styles.subtitle]}>{parsed ? 'Comprueba el resultado antes de publicar.' : 'Pega tu receta y revísala antes de publicar.'}</Text>
+      <Text style={[common.body, styles.subtitle]}>{parsed ? 'Comprueba el resultado antes de publicar.' : 'Pega tu receta en español o inglés.'}</Text>
     </View>
 
     {!parsed ? <>
       <View style={styles.sourceToolbar}>
-        <Pressable accessibilityRole="button" disabled={!loaded} onPress={useExample} style={({ pressed }) => [styles.utility, pressed && styles.pressed]}><Icon name="sparkles-outline" color={colors.red} size={16}/><Text style={styles.utilityText}>Usar ejemplo</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Elegir idioma del ejemplo" accessibilityState={{expanded:chooseExample}} disabled={!loaded} onPress={() => setChooseExample(!chooseExample)} style={({ pressed }) => [styles.utility, pressed && styles.pressed]}><Icon name="sparkles-outline" color={colors.red} size={16}/><Text style={styles.utilityText}>Ejemplo</Text><Icon name={chooseExample?'chevron-up':'chevron-down'} size={12} color={colors.muted}/></Pressable>
         <Pressable accessibilityRole="button" disabled={!loaded || busyPaste} onPress={() => void paste()} style={({ pressed }) => [styles.utility, pressed && styles.pressed]}>{busyPaste ? <ActivityIndicator size="small" color={colors.muted}/> : <Icon name="clipboard-outline" size={16} color={colors.muted}/>}<Text style={styles.utilityText}>Pegar</Text></Pressable>
         <View style={{ flex: 1 }}/>{source ? <IconButton name="trash-outline" label="Vaciar el texto de la receta" size={34} onPress={clearText}/> : undoText ? <Pressable onPress={() => { changeSource(undoText); setUndoText(''); }} accessibilityRole="button" style={styles.undo}><Text style={styles.undoText}>Deshacer</Text></Pressable> : null}
       </View>
+      {chooseExample && <View style={styles.exampleChoices}>{(['es','en'] as const).map(language=><Pressable key={language} accessibilityRole="button" accessibilityLabel={language==='es'?'Cargar ejemplo en español':'Load English example'} onPress={()=>useExample(language)} style={styles.utility}><Text style={styles.utilityText}>{language==='es'?'Español':'English'}</Text></Pressable>)}</View>}
       <View style={styles.editorShell}>
         <View style={styles.editorHeader}><View style={styles.editorDot}/><Text style={styles.editorLabel}>RECETA</Text><Text style={styles.characterCount}>{source.length.toLocaleString('es')}/16.000</Text></View>
         <TextInput
@@ -212,26 +224,27 @@ export function ComposeScreen({ profile, onPreview, onPublish, onPickImage }: Pr
         />
         <View style={styles.editorFooter}><Icon name="lock-closed-outline" size={12} color={colors.muted}/><Text style={styles.editorFooterText}>{loaded ? 'Borrador guardado en este dispositivo' : 'Recuperando tu borrador…'}</Text></View>
       </View>
-      <View style={styles.formatTip}><Icon name="information-circle-outline" size={17} color={colors.muted}/><Text style={styles.formatTipText}>Separa <Text style={styles.emphasis}>Ingredientes</Text> y <Text style={styles.emphasis}>Preparación</Text> en líneas distintas.</Text></View>
+      <View style={styles.formatTip}><Icon name="information-circle-outline" size={17} color={colors.muted}/><Text style={styles.formatTipText}>Separa <Text style={styles.emphasis}>Ingredientes / Ingredients</Text> y <Text style={styles.emphasis}>Preparación / Directions</Text>. El idioma se detecta solo.</Text></View>
       <PuffyButton title="Convertir receta" icon="sparkles-outline" onPress={convert} disabled={!loaded || !source.trim()} style={styles.convert}/>
       <Text style={styles.localNote}>El texto se procesa en este dispositivo.</Text>
     </> : <>
       <View style={styles.detectedCard}>
         <View style={styles.detectedTop}><View style={styles.detectedBadge}><Icon name="checkmark" size={13} color={colors.green}/><Text style={styles.detectedLabel}>RECETA ORGANIZADA</Text></View><Pressable accessibilityRole="button" onPress={() => { setParsed(null); setReviewed(false); }} style={styles.editText}><Icon name="create-outline" size={14} color={colors.muted}/><Text style={styles.editTextLabel}>Editar texto</Text></Pressable></View>
         <Text style={styles.recipeTitle}>{parsed.title}</Text>{Boolean(parsed.description) && <Text style={styles.recipeDescription}>{parsed.description}</Text>}
-        <Text style={styles.reviewMeta}>{parsed.servings} porciones{parsed.totalMinutes ? ` · ${parsed.totalMinutes} min` : ''}</Text>
+        <Text style={styles.reviewMeta}>{parsed.language==='en'?'English':'Español'} · {parsed.servings} porciones{parsed.totalMinutes ? ` · ${parsed.totalMinutes} min` : ''}</Text>
         <Pressable accessibilityRole="button" onPress={() => setExpanded(expanded === 'ingredients' ? null : 'ingredients')} style={styles.accordionHeader}><Text style={styles.accordionTitle}>Ingredientes</Text><Text style={styles.accordionCount}>{parsed.ingredients.length}</Text><Icon name={expanded === 'ingredients' ? 'chevron-up' : 'chevron-down'} size={16} color={colors.muted}/></Pressable>
         {expanded === 'ingredients' && <View style={styles.accordionBody}>{parsed.ingredients.length ? parsed.ingredients.map(ingredient => <View key={ingredient.id} style={styles.ingredientRow}><View style={styles.ingredientDot}/><Text style={styles.ingredientName}>{ingredient.name}</Text><Text style={styles.ingredientAmount}>{scaleIngredient(ingredient, parsed.servings, parsed.servings)}</Text></View>) : <Text style={styles.missingText}>Añade ingredientes al texto para completar esta receta.</Text>}</View>}
         <Pressable accessibilityRole="button" onPress={() => setExpanded(expanded === 'steps' ? null : 'steps')} style={styles.accordionHeader}><Text style={styles.accordionTitle}>El paso a paso</Text><Text style={styles.accordionCount}>{parsed.steps.length}</Text><Icon name={expanded === 'steps' ? 'chevron-up' : 'chevron-down'} size={16} color={colors.muted}/></Pressable>
         {expanded === 'steps' && <View style={styles.accordionBody}>{parsed.steps.length ? parsed.steps.map((step, index) => <View key={step.id} style={styles.stepRow}><Text style={styles.stepNumber}>{String(index + 1).padStart(2, '0')}</Text><View style={{ flex: 1 }}><Text style={styles.stepTitle}>{step.title}</Text><Text style={styles.stepInstruction}>{step.instruction}</Text></View></View>) : <Text style={styles.missingText}>Añade la preparación. La conversión no inventa instrucciones.</Text>}</View>}
       </View>
+      {clarity.length>0&&<View style={styles.clarity}><Pressable accessibilityRole="button" accessibilityState={{expanded:showClarity}} onPress={()=>setShowClarity(!showClarity)} style={styles.clarityToggle}><Icon name="bulb-outline" size={18} color={colors.red}/><Text style={styles.clarityTitle}>Hacerla más clara · {clarity.length}</Text><Icon name={showClarity?'chevron-up':'chevron-down'} size={16} color={colors.muted}/></Pressable>{showClarity&&clarity.map(hint=><View key={hint.id} style={styles.clarityHint}><Text style={styles.clarityHintTitle}>{hint.title}</Text><Text style={styles.clarityHintBody}>{hint.detail}</Text></View>)}</View>}
       {parsed.warnings.length > 0 && <View style={styles.warnings}><View style={styles.warningHeading}><Icon name="information-circle-outline" size={18} color={isDark?'#c9ac81':'#846638'}/><Text style={styles.warningTitle}>Revisa estos detalles</Text></View>{parsed.warnings.map((warning, index) => <View key={index} style={styles.warningRow}><Text style={styles.warningBullet}>·</Text><Text style={styles.warningText}>{warning}</Text></View>)}</View>}
       <Pressable accessibilityRole="button" onPress={() => onPreview(parsed, image || demoImage)} style={({ pressed }) => [styles.previewButton, pressed && styles.pressed]}><View style={styles.previewIcon}><Icon name="hand-left-outline" size={23} color={colors.red}/></View><View style={{ flex: 1 }}><Text style={styles.previewTitle}>Ver receta interactiva</Text></View><Icon name="arrow-forward" size={19} color={colors.muted}/></Pressable>
       {!image && <Text style={styles.imageExampleNote}>Vista previa con foto de ejemplo. Añade una foto para publicar.</Text>}
     </>}
 
     <View style={styles.photoSection}>
-      <View style={styles.sectionHead}><Text style={styles.sectionTitle}>Foto</Text></View>
+      <View style={styles.sectionHead}><Text style={styles.sectionTitle}>Foto</Text>{image&&<IconButton name="close" label="Quitar foto de la receta" size={34} onPress={removeImage}/>}</View>
       <Pressable accessibilityRole="button" accessibilityLabel={image ? 'Cambiar foto de la receta' : 'Elegir foto de la receta'} disabled={busyImage || !loaded} onPress={() => void pickImage()} style={({ pressed }) => [styles.photoPicker, Boolean(image) && styles.photoPickerFilled, pressed && styles.pressed]}>
         {image ? <><Image source={image} style={styles.photoPreview}/><View style={styles.photoOverlay}/><View style={styles.photoCaption}><View style={styles.photoCaptionIcon}>{busyImage ? <ActivityIndicator color="#fff" size="small"/> : <Icon name="camera-outline" size={18} color="#fff"/>}</View><View><Text style={styles.photoCaptionText}>Cambiar foto</Text><Text style={styles.photoCaptionDetail}>{examplePhoto ? 'Imagen de ejemplo' : ''}</Text></View></View></> : <><View style={styles.photoEmptyIcon}>{busyImage ? <ActivityIndicator color={colors.red} size="small"/> : <Icon name="image-outline" size={25} color={colors.red}/>}</View><Text style={styles.photoEmptyTitle}>Elegir foto</Text></>}
       </Pressable>
@@ -256,6 +269,8 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   flowNumber: { width: 23, height: 23, borderRadius: 9, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   flowActive: { borderColor: colors.red, backgroundColor: colors.redTint }, flowNumberText: { color: colors.muted, fontSize: 10, fontWeight: '700' }, flowLabel: { color: colors.muted, fontSize: 10, fontWeight: '500' }, flowLine: { flex: 1, height: 1, backgroundColor: colors.border, marginHorizontal: 5 },
   sourceToolbar: { flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: 13 }, utility: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 14, borderRadius:999, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }, utilityText: { color: colors.text, fontSize: 12, fontWeight: '500' }, pressed: { opacity: .65 },
+  exampleChoices: { flexDirection:'row', gap:9, marginBottom:15 },
+  clarity: { borderRadius:22, borderWidth:1, borderColor:colors.border, marginTop:16, backgroundColor:colors.surface, paddingHorizontal:16 }, clarityToggle: { minHeight:58, flexDirection:'row', alignItems:'center', gap:10, borderRadius:999 }, clarityTitle: { flex:1, fontSize:12, fontWeight:'600', color:colors.text }, clarityHint: { paddingBottom:16, paddingTop:3 }, clarityHintTitle: { fontSize:12, fontWeight:'600', color:colors.text }, clarityHintBody: { marginTop:6, color:colors.muted, fontSize:12, lineHeight:19 },
   undo: { padding: 8 }, undoText: { color: colors.red, fontSize: 11 },
   editorShell: { backgroundColor: colors.surface, borderRadius: 22, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' }, editorHeader: { paddingHorizontal: 16, paddingTop: 16, flexDirection: 'row', alignItems: 'center', gap: 7 }, editorDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.red }, editorLabel: { fontSize: 7, letterSpacing: 1.1, color: colors.muted, fontWeight: '600', flex: 1 }, characterCount: { fontSize: 8, color: colors.muted },
   editor: { color: colors.text, fontSize: 15, lineHeight: 24, minHeight: 300, padding: 17, paddingTop: 20 }, editorFooter: { borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 6 }, editorFooterText: { fontSize: 9, color: colors.muted },
