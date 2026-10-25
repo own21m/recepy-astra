@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "RECEPY",
+    "slug": "recepy-local",
+    "version": "0.2.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#000000",
+    "scheme": "recepy",
+    "ios": { "supportsTablet": true },
+    "android": { "package": "com.recepy.app", "edgeToEdgeEnabled": true },
+    "web": { "bundler": "metro", "name": "RECEPY", "themeColor": "#000000" },
+    "plugins": [["expo-image-picker", {"photosPermission": "Selecciona una foto para tu perfil o para compartir tu receta en RECEPY.", "cameraPermission": false, "microphonePermission": false}]]
+  }
+}

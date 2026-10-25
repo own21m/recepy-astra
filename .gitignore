@@ -1,0 +1,39 @@
+# Dependencies and Expo local state
+node_modules/
+.expo/
+.expo-shared/
+
+# Generated bundles, build output and coverage
+dist/
+dist-web/
+dist-ios/
+web-build/
+coverage/
+*.tsbuildinfo
+
+# Local environment, credentials and signing files
+.env
+.env.*
+!.env.example
+.git-credentials
+.npmrc
+credentials.json
+service-account*.json
+*.pem
+*.key
+*.p8
+*.p12
+*.keystore
+*.jks
+*.mobileprovision
+
+# Logs, caches and editor/OS files
+*.log
+.cache/
+.tmp/
+tmp/
+work/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.orig
