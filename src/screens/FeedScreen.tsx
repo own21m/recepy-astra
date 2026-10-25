@@ -13,6 +13,8 @@ import { colors, useThemeStyles, type ThemeColors } from '../theme';
 import { parseRecipeText } from '../domain/recipeParser';
 import { EmptyState, Glass, Icon, IconButton, PuffyButton, feedback } from '../components/primitives';
 import type { IconName } from '../components/primitives';
+import { shouldCaptureRecipeOpening } from '../domain/recipeOpeningGesture';
+import type { RecipeOpeningGesture } from '../components/useRecipeOpening';
 
 export type FeedScreenProps = {
   recipes: SocialRecipe[];
@@ -22,6 +24,7 @@ export type FeedScreenProps = {
   onLike: (id: string) => void;
   onSave: (id: string) => void;
   onRecipe: (recipe: SocialRecipe) => void;
+  recipeGesture: RecipeOpeningGesture;
   onComments: (recipe: SocialRecipe) => void;
   onProfile: (creator: Creator) => void;
   onFollow: (creator: Creator) => void;
@@ -97,6 +100,7 @@ export function FeedScreen(props: FeedScreenProps) {
             own={item.author.handle === props.ownHandle} autoplay={props.autoplay}
             onLike={() => props.onLike(item.id)} onSave={() => props.onSave(item.id)}
             onRecipe={() => props.onRecipe(item)} onComments={() => props.onComments(item)}
+            recipeGesture={props.recipeGesture}
             onProfile={() => props.onProfile(item.author)} onFollow={() => props.onFollow(item.author)}
             onShare={() => props.onShare(item)}
           />}
@@ -129,21 +133,47 @@ type FeedPageProps = {
   active: boolean; liked: boolean; saved: boolean; following: boolean; own: boolean; autoplay: boolean;
   onLike: () => void; onSave: () => void; onRecipe: () => void; onComments: () => void;
   onProfile: () => void; onFollow: () => void; onShare: () => void;
+  recipeGesture: RecipeOpeningGesture;
 };
 
 function FeedPage(props: FeedPageProps) {
   const { recipe, height } = props;
   const insets = useSafeAreaInsets();
-  const openRecipeRef = useRef(props.onRecipe);
-  openRecipeRef.current = props.onRecipe;
-  const wideRef = useRef(props.wide);
-  wideRef.current = props.wide;
+  const latest = useRef(props);
+  latest.current = props;
+  const captureDistance = useRef(0);
+  const dragging = useRef(false);
+  function capture(dx: number, dy: number) {
+    if (dragging.current || latest.current.wide || !shouldCaptureRecipeOpening(dx, dy)) return false;
+    captureDistance.current = dx;
+    return true;
+  }
+  const captureRef = useRef(capture);
+  captureRef.current = capture;
   const pan = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => false,
-    onMoveShouldSetPanResponder: (_, gesture) => !wideRef.current && gesture.dx > 20 && gesture.dx > Math.abs(gesture.dy) * 1.6,
-    onMoveShouldSetPanResponderCapture: (_, gesture) => !wideRef.current && gesture.dx > 25 && gesture.dx > Math.abs(gesture.dy) * 1.8,
-    onPanResponderRelease: (_, gesture) => { if (!wideRef.current && gesture.dx > 60 && gesture.dx > Math.abs(gesture.dy) * 1.5) { feedback(); openRecipeRef.current(); } },
-    onPanResponderTerminationRequest: () => true,
+    onMoveShouldSetPanResponder: (_, gesture) => captureRef.current(gesture.dx, gesture.dy),
+    onMoveShouldSetPanResponderCapture: (_, gesture) => captureRef.current(gesture.dx, gesture.dy),
+    onPanResponderGrant: () => {
+      // RN resets dx on grant. Retain the initial movement that crossed the touch slop.
+      dragging.current = latest.current.recipeGesture.begin(latest.current.recipe, captureDistance.current);
+    },
+    onPanResponderMove: (_, gesture) => {
+      if (!dragging.current) return;
+      if (gesture.numberActiveTouches > 1) {
+        latest.current.recipeGesture.end(captureDistance.current + gesture.dx, true);
+        dragging.current = false;
+      } else latest.current.recipeGesture.move(captureDistance.current + gesture.dx);
+    },
+    onPanResponderRelease: (_, gesture) => {
+      if (dragging.current) latest.current.recipeGesture.end(captureDistance.current + gesture.dx);
+      dragging.current = false;
+    },
+    onPanResponderTerminate: (_, gesture) => {
+      if (dragging.current) latest.current.recipeGesture.end(captureDistance.current + gesture.dx, true);
+      dragging.current = false;
+    },
+    onPanResponderTerminationRequest: () => false,
   })).current;
   const compactCard = height < 500;
   return <View style={[styles.page, { height }]}>

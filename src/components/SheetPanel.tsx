@@ -9,6 +9,8 @@ type Props = {
   kind: PanelMotion;
   desktop: boolean;
   reducedMotion: boolean;
+  /** Shared with the feed during an interactive entrance; no automatic entry animation. */
+  openingOffset?: Animated.Value;
   onClose: () => void;
   children: (close: () => void) => ReactNode;
 };
@@ -18,10 +20,14 @@ export function SheetPanel(props: Props) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const styles = useThemeStyles(createStyles);
-  const offset = useRef(new Animated.Value(props.kind === 'recipe' ? -width : height)).current;
-  const currentOffset = useRef(props.kind === 'recipe' ? -width : height);
+  const offset = useRef(props.openingOffset ?? new Animated.Value(props.kind === 'recipe' ? -width : height)).current;
+  const currentOffset = useRef(props.openingOffset ? 0 : props.kind === 'recipe' ? -width : height);
   const dragOrigin = useRef(0);
-  const shade = useRef(new Animated.Value(0)).current;
+  const shade = offset.interpolate({
+    inputRange: props.kind === 'recipe' ? [-Math.max(1, width), 0] : [0, Math.max(1, height)],
+    outputRange: props.kind === 'recipe' ? [0, 1] : [1, 0],
+    extrapolate: 'clamp',
+  });
   const closing = useRef(false);
   const viewport = useRef<React.ComponentRef<typeof View>>(null);
   const keyboardFrame = useRef<KeyboardMetrics | null>(null);
@@ -84,20 +90,15 @@ export function SheetPanel(props: Props) {
     if (closing.current) return;
     closing.current = true;
     Keyboard.dismiss();
-    offset.stopAnimation(); shade.stopAnimation();
+    offset.stopAnimation();
     const next = latest.current.kind === 'recipe' ? -extent.current.width : extent.current.height;
-    Animated.parallel([
-      Animated.timing(offset, { toValue: next, duration: latest.current.reducedMotion ? 0 : 240, useNativeDriver: Platform.OS !== 'web' }),
-      Animated.timing(shade, { toValue: 0, duration: latest.current.reducedMotion ? 0 : 200, useNativeDriver: Platform.OS !== 'web' }),
-    ]).start(() => latest.current.onClose());
+    Animated.timing(offset, { toValue: next, duration: latest.current.reducedMotion ? 0 : 240, useNativeDriver: Platform.OS !== 'web' })
+      .start(({ finished }) => { if (finished) latest.current.onClose(); });
   }
   function restore() {
     if (closing.current) return;
-    if (latest.current.reducedMotion) { offset.setValue(0); shade.setValue(1); return; }
-    Animated.parallel([
-      Animated.spring(offset, { toValue: 0, damping: 28, stiffness: 280, mass: 1, useNativeDriver: Platform.OS !== 'web' }),
-      Animated.spring(shade, { toValue: 1, damping: 28, stiffness: 280, mass: 1, useNativeDriver: Platform.OS !== 'web' }),
-    ]).start();
+    if (latest.current.reducedMotion) { offset.setValue(0); return; }
+    Animated.spring(offset, { toValue: 0, damping: 28, stiffness: 280, mass: 1, useNativeDriver: Platform.OS !== 'web' }).start();
   }
   function dragPosition(dx: number, dy: number) {
     const horizontal = latest.current.kind === 'recipe';
@@ -106,20 +107,18 @@ export function SheetPanel(props: Props) {
   const actions = useRef({ close, restore, dragPosition });
   actions.current = { close, restore, dragPosition };
   const pan = useRef(PanResponder.create({
-    onStartShouldSetPanResponder: () => latest.current.kind === 'comments',
-    onMoveShouldSetPanResponder: (_, g) => shouldCapturePanel(latest.current.kind, g.dx, g.dy),
-    onMoveShouldSetPanResponderCapture: (_, g) => shouldCapturePanel(latest.current.kind, g.dx, g.dy),
+    onStartShouldSetPanResponder: () => !closing.current && latest.current.kind === 'comments',
+    onMoveShouldSetPanResponder: (_, g) => !closing.current && shouldCapturePanel(latest.current.kind, g.dx, g.dy),
+    onMoveShouldSetPanResponderCapture: (_, g) => !closing.current && shouldCapturePanel(latest.current.kind, g.dx, g.dy),
     onPanResponderGrant: () => {
+      if (closing.current) return;
       dragOrigin.current = currentOffset.current;
       offset.stopAnimation(value => { dragOrigin.current = value; });
-      shade.stopAnimation();
     },
     onPanResponderMove: (_, g) => {
       if (closing.current) return;
       const position = actions.current.dragPosition(g.dx, g.dy);
-      const distance = latest.current.kind === 'recipe' ? extent.current.width : extent.current.height;
       offset.setValue(position);
-      shade.setValue(Math.max(0, 1 - Math.abs(position) / Math.max(1, distance)));
     },
     onPanResponderRelease: (_, g) => {
       const horizontal = latest.current.kind === 'recipe';
@@ -132,11 +131,8 @@ export function SheetPanel(props: Props) {
   })).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(offset, { toValue: 0, duration: props.reducedMotion ? 0 : 290, useNativeDriver: Platform.OS !== 'web' }),
-      Animated.timing(shade, { toValue: 1, duration: props.reducedMotion ? 0 : 220, useNativeDriver: Platform.OS !== 'web' }),
-    ]).start();
-    return () => { offset.stopAnimation(); shade.stopAnimation(); };
+    if (!props.openingOffset) Animated.timing(offset, { toValue: 0, duration: props.reducedMotion ? 0 : 290, useNativeDriver: Platform.OS !== 'web' }).start();
+    return () => offset.stopAnimation();
   }, []);
 
   return <View ref={viewport} collapsable={false} onLayout={measureKeyboard} style={styles.backdrop}>

@@ -8,7 +8,7 @@
     "start": "expo start --go --lan",
     "web": "expo start --web --port 8081",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test --test-concurrency=1 src/domain/recipeParser.test.ts src/domain/menuGesture.test.ts src/domain/panelGesture.test.ts src/domain/commentThreads.test.ts src/domain/keyboardLayout.test.ts src/domain/cookingGuide.test.ts src/domain/recipeReview.test.ts",
+    "test": "node --experimental-strip-types --test --test-concurrency=1 src/domain/recipeParser.test.ts src/domain/menuGesture.test.ts src/domain/panelGesture.test.ts src/domain/recipeOpeningGesture.test.ts src/domain/commentThreads.test.ts src/domain/keyboardLayout.test.ts src/domain/cookingGuide.test.ts src/domain/recipeReview.test.ts",
     "export:web": "expo export --platform web --output-dir dist-web",
     "export:ios": "expo export --platform ios --output-dir dist-ios"
   },
