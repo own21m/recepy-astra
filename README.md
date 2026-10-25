@@ -70,7 +70,7 @@ La apariencia es automática y sigue los cambios de tema del sistema. El modo cl
 
 ## Recetas y comentarios en el feed
 
-En móvil, arrastra de izquierda a derecha sobre la publicación para abrir su receta, siguiendo la flecha del botón. El panel entra desde la izquierda y se cierra con la X o arrastrándolo hacia la derecha. Los comentarios aparecen desde abajo y tienen una agarradera superior: arrástrala hacia abajo para cerrar el panel, además de poder usar la X.
+En móvil, arrastra de izquierda a derecha sobre la publicación para abrir su receta, siguiendo la flecha del botón. El panel entra desde la izquierda y se cierra con la X o arrastrándolo de derecha a izquierda. Durante el cierre sigue el dedo; si sueltas sin completar el gesto, vuelve a su posición. Los comentarios aparecen desde abajo y tienen una agarradera superior: arrástrala hacia abajo para cerrar el panel, además de poder usar la X.
 
 Toca el avatar, nombre o cuerpo de un comentario para abrir el perfil de su autor. Cada comentario permite responder y dar o quitar un me gusta. Las respuestas y los likes se guardan en este dispositivo.
 
@@ -149,6 +149,6 @@ pnpm export:web
 pnpm export:ios
 ```
 
-Las comprobaciones recientes incluyen **TypeScript y 67 pruebas automatizadas**: 33 del analizador bilingüe, 9 de geometría del menú, 3 de gestos de paneles, 6 de comentarios, 7 del ajuste del teclado, 6 de la guía de cocina y 3 de la revisión de claridad. Durante el desarrollo se exportaron bundles para web e iOS; exportar un bundle no equivale a generar una app firmada ni a ejecutarla en un iPhone físico.
+Las comprobaciones recientes incluyen **TypeScript y 69 pruebas automatizadas**: 33 del analizador bilingüe, 9 de geometría del menú, 5 de gestos de paneles, 6 de comentarios, 7 del ajuste del teclado, 6 de la guía de cocina y 3 de la revisión de claridad. Durante el desarrollo se exportaron bundles para web e iOS; exportar un bundle no equivale a generar una app firmada ni a ejecutarla en un iPhone físico.
 
 El analizador y sus pruebas están en `src/domain/recipeParser.ts` y `src/domain/recipeParser.test.ts`. La geometría del menú, los paneles, el teclado, los comentarios, la guía de cocina y la revisión de claridad también tienen pruebas en `src/domain`. La interfaz nativa está en `src/screens`; los botones y materiales compartidos están en `src/components/primitives.tsx`. El ajuste del teclado está en `src/components/SheetPanel.tsx`. Los datos sociales de muestra están en `src/data/recipes.ts`.
