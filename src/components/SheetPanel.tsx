@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, useThemeStyles, type ThemeColors } from '../theme';
 import { clampPanelOffset, shouldCapturePanel, shouldDismissPanel, type PanelMotion } from '../domain/panelGesture';
 import { keyboardOverlap } from '../domain/keyboardLayout';
+import { commentsPanelTravel } from '../domain/commentsOpeningGesture';
 
 type Props = {
   kind: PanelMotion;
@@ -20,11 +21,12 @@ export function SheetPanel(props: Props) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const styles = useThemeStyles(createStyles);
-  const offset = useRef(props.openingOffset ?? new Animated.Value(props.kind === 'recipe' ? -width : height)).current;
-  const currentOffset = useRef(props.openingOffset ? 0 : props.kind === 'recipe' ? -width : height);
+  const verticalTravel = props.kind === 'comments' ? commentsPanelTravel(height, props.desktop) : height;
+  const offset = useRef(props.openingOffset ?? new Animated.Value(props.kind === 'recipe' ? -width : verticalTravel)).current;
+  const currentOffset = useRef(props.openingOffset ? 0 : props.kind === 'recipe' ? -width : verticalTravel);
   const dragOrigin = useRef(0);
   const shade = offset.interpolate({
-    inputRange: props.kind === 'recipe' ? [-Math.max(1, width), 0] : [0, Math.max(1, height)],
+    inputRange: props.kind === 'recipe' ? [-Math.max(1, width), 0] : [0, Math.max(1, verticalTravel)],
     outputRange: props.kind === 'recipe' ? [0, 1] : [1, 0],
     extrapolate: 'clamp',
   });
@@ -37,8 +39,8 @@ export function SheetPanel(props: Props) {
   const measureRequest = useRef(0);
   const latest = useRef(props);
   latest.current = props;
-  const extent = useRef({ width, height });
-  extent.current = { width, height };
+  const extent = useRef({ width, height: verticalTravel });
+  extent.current = { width, height: verticalTravel };
   const kind = props.kind;
 
   useEffect(() => {
@@ -159,7 +161,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   keyboardViewport: { flex: 1, width: '100%', justifyContent: 'flex-end', alignItems: 'center' },
   panel: { width: '100%', height: '100%', backgroundColor: colors.background, overflow: 'hidden' },
   desktop: { height: '94%', maxHeight: 1050, maxWidth: 780, borderRadius: 30, borderWidth: 1, borderColor: colors.border, marginBottom: '2%' },
-  comments: { height: '86%', borderTopLeftRadius: 30, borderTopRightRadius: 30, borderWidth: 1, borderColor: colors.border },
+  comments: { height: '86%', marginBottom: 0, borderTopLeftRadius: 30, borderTopRightRadius: 30, borderWidth: 1, borderColor: colors.border },
   content: { flex: 1, minHeight: 0 },
   handleArea: { height: 32, justifyContent: 'center', alignItems: 'center', ...(Platform.OS === 'web' ? { cursor: 'grab', touchAction: 'none', userSelect: 'none' } as any : {}) },
   handle: { width: 40, height: 4, borderRadius: 99, backgroundColor: colors.muted, opacity: .55 },

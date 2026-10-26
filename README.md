@@ -118,7 +118,7 @@ Los temporizadores guardan su hora de finalización y actualizan la cuenta al vo
 - Botón «Menú» que se transforma en barra por tap o por mantener, deslizar y soltar; vuelve a contraerse tras cinco segundos sin actividad.
 - Icono de la sección actual rojo y botones con extremos circulares.
 - Receta que entra de izquierda a derecha siguiendo el dedo: suelta antes del 35 % del ancho para cancelar o supera ese recorrido para abrirla. Puedes invertir el movimiento antes de soltar. El cierre hacia la izquierda también sigue el dedo; el toque conserva su apertura animada.
-- Comentarios con agarradera para cerrar hacia abajo.
+- Comentarios que puedes abrir arrastrando hacia arriba desde su botón en el feed, siguiendo el dedo. Soltar antes del 35 % del recorrido cancela; retroceder deshace el gesto. El toque sigue disponible y la agarradera permite cerrarlos hacia abajo. El resto del feed conserva su scroll vertical.
 - Perfiles accesibles desde los comentarios, respuestas y likes locales.
 - Caja de comentarios que acompaña al teclado de iOS, con envío sin ocultarlo.
 - Tema automático negro o beige según el sistema.
@@ -139,7 +139,7 @@ Todo el trabajo de esta fase es **local**. No usa Sites de ChatGPT, MongoDB, Aut
 
 Los borradores de comentarios se conservan al visitar un perfil y volver al hilo durante la sesión. Consulta [ASSETS.md](ASSETS.md) para conocer la procedencia de los recursos visuales y sus referencias.
 
-Los cambios recientes se verificaron con TypeScript y pruebas automatizadas; la vista web local permite comprobar el diseño y los flujos compartidos. Se comprobaron el tap del menú y el arrastre por sus destinos durante el desarrollo. En la vista web móvil se verificaron posiciones intermedias durante la apertura, el retroceso al soltar un arrastre corto, la apertura por toque, el cierre lateral y la vuelta desde comentarios. **Queda pendiente validar en un iPhone físico que la caja de comentarios siga al teclado de iOS**, además del gesto completo de mantener, deslizar y soltar. Las pruebas de geometría y la vista web no sustituyen la comprobación nativa del teclado, la voz, los permisos, la respuesta háptica y los materiales.
+Los cambios recientes se verificaron con TypeScript y pruebas automatizadas; la vista web local permite comprobar el diseño y los flujos compartidos. Se comprobaron el tap del menú y el arrastre por sus destinos durante el desarrollo. En la vista web móvil se verificaron posiciones intermedias durante la apertura, el retroceso al soltar un arrastre corto, la apertura por toque, el cierre lateral y la vuelta desde comentarios. También se verificaron la apertura ascendente de comentarios, el seguimiento de posiciones intermedias, la cancelación sin clic accidental, el toque sin ventanas duplicadas y la continuidad del scroll del feed. **Queda pendiente validar en un iPhone físico que la caja de comentarios siga al teclado de iOS**, además del gesto completo de mantener, deslizar y soltar. Las pruebas de geometría y la vista web no sustituyen la comprobación nativa del teclado, la voz, los permisos, la respuesta háptica y los materiales.
 
 ## Verificación y desarrollo
 
@@ -150,6 +150,6 @@ pnpm export:web
 pnpm export:ios
 ```
 
-Las comprobaciones recientes incluyen **TypeScript y 75 pruebas automatizadas**: 33 del analizador bilingüe, 9 de geometría del menú, 5 de cierre de paneles, 6 de apertura interactiva, 6 de comentarios, 7 del ajuste del teclado, 6 de la guía de cocina y 3 de la revisión de claridad. Durante el desarrollo se exportaron bundles para web e iOS; exportar un bundle no equivale a generar una app firmada ni a ejecutarla en un iPhone físico.
+Las comprobaciones recientes incluyen **TypeScript y 82 pruebas automatizadas**: 33 del analizador bilingüe, 9 de geometría del menú, 5 de cierre de paneles, 6 de apertura de recetas, 7 de apertura de comentarios, 6 de comentarios, 7 del ajuste del teclado, 6 de la guía de cocina y 3 de la revisión de claridad. Durante el desarrollo se exportaron bundles para web e iOS; exportar un bundle no equivale a generar una app firmada ni a ejecutarla en un iPhone físico.
 
 El analizador y sus pruebas están en `src/domain/recipeParser.ts` y `src/domain/recipeParser.test.ts`. La geometría del menú, los paneles, el teclado, los comentarios, la guía de cocina y la revisión de claridad también tienen pruebas en `src/domain`. La interfaz nativa está en `src/screens`; los botones y materiales compartidos están en `src/components/primitives.tsx`. El ajuste del teclado está en `src/components/SheetPanel.tsx`. Los datos sociales de muestra están en `src/data/recipes.ts`.

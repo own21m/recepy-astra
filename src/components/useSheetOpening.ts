@@ -2,15 +2,18 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, AppState, Platform } from 'react-native';
 import type { SocialRecipe } from '../data/recipes';
 import { recipeOpeningOffset, shouldCompleteRecipeOpening } from '../domain/recipeOpeningGesture';
+import { commentsOpeningOffset, commentsPanelTravel, shouldCompleteCommentsOpening } from '../domain/commentsOpeningGesture';
 import { feedback } from './primitives';
 
-export type RecipeOpeningGesture = {
+export type SheetOpeningGesture = {
   begin: (recipe: SocialRecipe, distance: number) => boolean;
   move: (distance: number) => void;
   end: (distance: number, cancelled?: boolean) => void;
 };
 
 type Options = {
+  kind: 'recipe' | 'comments';
+  desktop: boolean;
   width: number;
   height: number;
   enabled: boolean;
@@ -19,14 +22,18 @@ type Options = {
   onCancel: () => void;
 };
 
-/** The feed owns the touch until release; the same recipe layer stays mounted afterwards. */
-export function useRecipeOpening(options: Options) {
-  const offset = useRef(new Animated.Value(-options.width)).current;
+/** The feed owns the touch until release; the same sheet stays mounted afterwards. */
+export function useSheetOpening(options: Options) {
+  const offset = useRef(new Animated.Value(options.kind === 'recipe' ? -options.width : commentsPanelTravel(options.height, options.desktop))).current;
   const [active, setActive] = useState(false);
-  const session = useRef<{ width: number; phase: 'dragging' | 'settling'; token: number } | null>(null);
+  const session = useRef<{ extent: number; phase: 'dragging' | 'settling'; token: number } | null>(null);
   const generation = useRef(0);
   const latest = useRef(options);
   latest.current = options;
+
+  function position(distance: number, extent: number) {
+    return latest.current.kind === 'recipe' ? recipeOpeningOffset(distance, extent) : commentsOpeningOffset(distance, extent);
+  }
 
   function reset() {
     generation.current += 1;
@@ -37,24 +44,26 @@ export function useRecipeOpening(options: Options) {
   function begin(recipe: SocialRecipe, distance: number) {
     if (!latest.current.enabled || session.current) return false;
     offset.stopAnimation();
-    session.current = { width: latest.current.width, phase: 'dragging', token: ++generation.current };
-    offset.setValue(recipeOpeningOffset(distance, session.current.width));
+    const extent = latest.current.kind === 'recipe' ? latest.current.width : commentsPanelTravel(latest.current.height, latest.current.desktop);
+    session.current = { extent, phase: 'dragging', token: ++generation.current };
+    offset.setValue(position(distance, extent));
     setActive(true);
     latest.current.onBegin(recipe);
     return true;
   }
   function move(distance: number) {
-    if (session.current?.phase === 'dragging') offset.setValue(recipeOpeningOffset(distance, session.current.width));
+    if (session.current?.phase === 'dragging') offset.setValue(position(distance, session.current.extent));
   }
   function end(distance: number, cancelled = false) {
     const current = session.current;
     if (!current || current.phase !== 'dragging') return;
     current.phase = 'settling';
-    const complete = !cancelled && shouldCompleteRecipeOpening(distance, current.width);
-    offset.setValue(recipeOpeningOffset(distance, current.width));
+    const complete = !cancelled && (latest.current.kind === 'recipe'
+      ? shouldCompleteRecipeOpening(distance, current.extent) : shouldCompleteCommentsOpening(distance, current.extent));
+    offset.setValue(position(distance, current.extent));
     if (complete) feedback();
     Animated.timing(offset, {
-      toValue: complete ? 0 : -current.width,
+      toValue: complete ? 0 : latest.current.kind === 'recipe' ? -current.extent : current.extent,
       duration: latest.current.reducedMotion ? 0 : 200,
       useNativeDriver: Platform.OS !== 'web',
     }).start(({ finished }) => {
@@ -84,5 +93,5 @@ export function useRecipeOpening(options: Options) {
     };
   }, [offset]);
 
-  return { active, offset, reset, gesture: { begin, move, end } satisfies RecipeOpeningGesture };
+  return { active, offset, reset, gesture: { begin, move, end } satisfies SheetOpeningGesture };
 }

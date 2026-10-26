@@ -14,7 +14,8 @@ import { parseRecipeText } from '../domain/recipeParser';
 import { EmptyState, Glass, Icon, IconButton, PuffyButton, feedback } from '../components/primitives';
 import type { IconName } from '../components/primitives';
 import { shouldCaptureRecipeOpening } from '../domain/recipeOpeningGesture';
-import type { RecipeOpeningGesture } from '../components/useRecipeOpening';
+import type { SheetOpeningGesture } from '../components/useSheetOpening';
+import { CommentsTrigger } from '../components/CommentsTrigger';
 
 export type FeedScreenProps = {
   recipes: SocialRecipe[];
@@ -24,7 +25,8 @@ export type FeedScreenProps = {
   onLike: (id: string) => void;
   onSave: (id: string) => void;
   onRecipe: (recipe: SocialRecipe) => void;
-  recipeGesture: RecipeOpeningGesture;
+  recipeGesture: SheetOpeningGesture;
+  commentsGesture: SheetOpeningGesture;
   onComments: (recipe: SocialRecipe) => void;
   onProfile: (creator: Creator) => void;
   onFollow: (creator: Creator) => void;
@@ -46,12 +48,16 @@ export function FeedScreen(props: FeedScreenProps) {
   const [pageHeight, setPageHeight] = useState(520);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [appIsActive, setAppIsActive] = useState(AppState.currentState !== 'background');
+  const [commentsTouchActive, setCommentsTouchActive] = useState(false);
   const listRef = useRef<FlatList<SocialRecipe>>(null);
   const indexRef = useRef(0);
   const details = useMemo(() => new Map(props.recipes.map(recipe => [recipe.id, parseRecipeText(recipe.rawText)])), [props.recipes]);
 
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', next => setAppIsActive(next === 'active'));
+    const subscription = AppState.addEventListener('change', next => {
+      setAppIsActive(next === 'active');
+      if (next !== 'active') setCommentsTouchActive(false);
+    });
     return () => subscription.remove();
   }, []);
   useEffect(() => {
@@ -101,10 +107,11 @@ export function FeedScreen(props: FeedScreenProps) {
             onLike={() => props.onLike(item.id)} onSave={() => props.onSave(item.id)}
             onRecipe={() => props.onRecipe(item)} onComments={() => props.onComments(item)}
             recipeGesture={props.recipeGesture}
+            commentsGesture={props.commentsGesture} onCommentsTouchActive={setCommentsTouchActive}
             onProfile={() => props.onProfile(item.author)} onFollow={() => props.onFollow(item.author)}
             onShare={() => props.onShare(item)}
           />}
-          pagingEnabled decelerationRate="fast" snapToInterval={pageHeight} snapToAlignment="start"
+          scrollEnabled={!commentsTouchActive} pagingEnabled decelerationRate="fast" snapToInterval={pageHeight} snapToAlignment="start"
           showsVerticalScrollIndicator={false} bounces={false} initialNumToRender={2}
           maxToRenderPerBatch={2} windowSize={3} removeClippedSubviews={false}
           getItemLayout={(_, index) => ({ length: pageHeight, offset: index * pageHeight, index })}
@@ -133,7 +140,9 @@ type FeedPageProps = {
   active: boolean; liked: boolean; saved: boolean; following: boolean; own: boolean; autoplay: boolean;
   onLike: () => void; onSave: () => void; onRecipe: () => void; onComments: () => void;
   onProfile: () => void; onFollow: () => void; onShare: () => void;
-  recipeGesture: RecipeOpeningGesture;
+  recipeGesture: SheetOpeningGesture;
+  commentsGesture: SheetOpeningGesture;
+  onCommentsTouchActive: (active: boolean) => void;
 };
 
 function FeedPage(props: FeedPageProps) {
@@ -187,7 +196,10 @@ function FeedPage(props: FeedPageProps) {
       </View>
       <View style={[styles.actions, compactCard && styles.compactActions, { bottom: props.wide ? 30 : insets.bottom + 89 }]}>
         <PostAction icon={props.liked ? 'heart' : 'heart-outline'} label={props.liked ? 'Quitar me gusta' : 'Me gusta'} caption={compact(recipe.likes + (props.liked ? 1 : 0))} color={props.liked ? '#ff6d58' : colors.text} onPress={props.onLike} />
-        <PostAction icon="chatbubble-outline" label="Abrir comentarios" caption={compact(recipe.comments)} onPress={props.onComments} />
+        <CommentsTrigger recipe={recipe} gesture={props.commentsGesture} onTouchActive={props.onCommentsTouchActive} onPress={props.onComments} label="Abrir comentarios" style={styles.actionButton} pressedStyle={styles.actionPressed}>
+          <Glass appearance="dark" style={styles.actionGlass}><Icon name="chatbubble-outline" size={22} color={colors.text}/></Glass>
+          <Text numberOfLines={1} style={styles.actionCaption}>{compact(recipe.comments)}</Text>
+        </CommentsTrigger>
         <PostAction icon={props.saved ? 'bookmark' : 'bookmark-outline'} label={props.saved ? 'Quitar del recetario' : 'Guardar en mi recetario'} caption={props.saved ? 'Guardada' : 'Guardar'} color={props.saved ? '#ffbea4' : colors.text} onPress={props.onSave} />
         <PostAction icon="arrow-redo-outline" label="Compartir receta" onPress={props.onShare} />
       </View>
